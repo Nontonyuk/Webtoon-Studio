@@ -426,8 +426,9 @@ async function geminiText(model, prompt, asJson){
   return text;
 }
 
-async function geminiImage(model, promptText, refImages){
-  // refImages: array of {base64, mime}
+async function geminiImage(model, promptText, refImages, retryCount){
+  retryCount = retryCount || 0;
+  // reference images
   const parts = [];
   if(refImages && refImages.length){
     refImages.forEach(ref=>{
@@ -442,10 +443,17 @@ async function geminiImage(model, promptText, refImages){
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ contents: [{ parts }] })
   });
+  if(res.status===429 && retryCount<2){
+    await sleep(15000);
+    return geminiImage(model, promptText, refImages, retryCount+1);
+  }
   if(!res.ok){
     const errText = await res.text();
     if(res.status===404){
       throw new Error(`Model "${model}" tidak ditemukan atau sudah tidak tersedia (mungkin dideprecate Google). Coba ganti ke model lain di dropdown tab Setup.`);
+    }
+    if(res.status===429){
+      throw new Error('Kena rate limit free tier setelah beberapa kali coba ulang. Tunggu 1 menit lalu generate lagi satu-satu.');
     }
     throw new Error(`API error ${res.status}: ${errText.slice(0,300)}`);
   }
@@ -456,6 +464,7 @@ async function geminiImage(model, promptText, refImages){
   if(!imgPart) throw new Error('Model tidak mengembalikan gambar. Coba ubah prompt atau model.');
   return { base64: imgPart.inlineData.data, mime: imgPart.inlineData.mimeType || 'image/png' };
 }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
 
 /* =========================================================
    TAB 0: SETUP
@@ -651,8 +660,12 @@ Gaya gambar: line art bersih dengan cel-shading, warna solid, proporsi manhwa/we
 
 document.getElementById('genAllCharsBtn').addEventListener('click', async ()=>{
   if(!state.story || !state.story.characters){ setStatus('charStatus','err','Belum ada karakter.'); return; }
-  for(const c of state.story.characters){
-    await generateCharacterImage(c.name);
+  for(let i=0; i<state.story.characters.length; i++){
+    await generateCharacterImage(state.story.characters[i].name);
+    if(i < state.story.characters.length-1){
+      setStatus('charStatus','busy','Menunggu jeda 8 detik supaya tidak kena rate limit...');
+      await sleep(8000);
+    }
   }
 });
 
@@ -735,6 +748,10 @@ async function generateChapterPanels(ci){
   const ch = state.story.chapters[ci];
   for(let pi=0; pi<ch.panels.length; pi++){
     await generatePanelImage(ci,pi);
+    if(pi < ch.panels.length-1){
+      setStatus('panelGlobalStatus','busy','Menunggu jeda 8 detik supaya tidak kena rate limit...');
+      await sleep(8000);
+    }
   }
 }
 
