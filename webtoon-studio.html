@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Webtoon Studio — Cerita &amp; Panel Konsisten dengan Gemini</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0d0c11;
+    --panel:#17151f;
+    --panel-2:#1f1c29;
+    --line:#302b3d;
+    --paper:#f2ede2;
+    --paper-dim:#c9c2b4;
+    --red:#ff3b5c;
+    --red-dim:#7a1f31;
+    --cyan:#4fd8ea;
+    --yellow:#ffd23f;
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--ink);
+    background-image:
+      radial-gradient(circle, rgba(242,237,226,0.05) 1px, transparent 1px);
+    background-size:14px 14px;
+    color:var(--paper);
+    font-family:'Space Grotesk',sans-serif;
+    min-height:100vh;
+  }
+  ::selection{background:var(--red);color:var(--ink);}
+
+  /* ---- App shell ---- */
+  .shell{max-width:1180px;margin:0 auto;padding:28px 20px 80px;}
+
+  .masthead{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    border-bottom:3px solid var(--paper);
+    padding-bottom:14px;margin-bottom:22px;flex-wrap:wrap;gap:12px;
+  }
+  .masthead h1{
+    font-family:'Anton',sans-serif;
+    font-size:clamp(28px,5vw,46px);
+    letter-spacing:0.5px;
+    margin:0;
+    line-height:0.9;
+    text-transform:uppercase;
+  }
+  .masthead h1 span{color:var(--red);}
+  .masthead .tagline{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;color:var(--paper-dim);letter-spacing:0.5px;
+    max-width:280px;text-align:right;
+  }
+
+  /* ---- Tabs ---- */
+  .tabs{display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap;}
+  .tab-btn{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:17px;letter-spacing:1px;
+    background:var(--panel);
+    border:2px solid var(--line);
+    color:var(--paper-dim);
+    padding:9px 18px;cursor:pointer;
+    border-radius:var(--radius);
+    transition:all .12s ease;
+    position:relative;
+  }
+  .tab-btn .num{color:var(--red);margin-right:6px;}
+  .tab-btn:hover{border-color:var(--paper-dim);color:var(--paper);}
+  .tab-btn.active{
+    background:var(--red);border-color:var(--red);color:var(--ink);
+  }
+  .tab-btn.active .num{color:var(--ink);}
+  .tab-btn.locked{opacity:0.4;cursor:not-allowed;}
+  .tab-btn.locked:hover{border-color:var(--line);color:var(--paper-dim);}
+
+  .panel-view{display:none;}
+  .panel-view.active{display:block;animation:fade .18s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+
+  /* ---- Cards ---- */
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:20px;
+    margin-bottom:16px;
+  }
+  .card-title{
+    font-family:'Bebas Neue',sans-serif;
+    font-size:20px;letter-spacing:0.6px;
+    color:var(--paper);margin:0 0 4px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .card-sub{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11.5px;color:var(--paper-dim);
+    margin:0 0 16px;line-height:1.5;
+  }
+
+  label{
+    display:block;font-family:'JetBrains Mono',monospace;
+    font-size:11px;text-transform:uppercase;letter-spacing:0.6px;
+    color:var(--cyan);margin:14px 0 6px;
+  }
+  label:first-of-type{margin-top:0;}
+  input[type=text],input[type=password],input[type=number],textarea,select{
+    width:100%;background:var(--ink);border:1px solid var(--line);
+    color:var(--paper);padding:10px 12px;font-family:'Space Grotesk',sans-serif;
+    font-size:14px;border-radius:var(--radius);
+    resize:vertical;
+  }
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--red);}
+  textarea{min-height:80px;line-height:1.5;}
+  select{cursor:pointer;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .row > div{flex:1;min-width:160px;}
+
+  .btn{
+    font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.8px;
+    background:var(--red);color:var(--ink);border:none;
+    padding:11px 20px;border-radius:var(--radius);cursor:pointer;
+    display:inline-flex;align-items:center;gap:8px;
+    transition:transform .1s ease, opacity .1s ease;
+  }
+  .btn:hover{transform:translateY(-1px);}
+  .btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+  .btn.ghost{
+    background:transparent;border:1.5px solid var(--paper-dim);color:var(--paper);
+  }
+  .btn.ghost:hover{border-color:var(--paper);}
+  .btn.small{font-size:12.5px;padding:6px 12px;}
+  .btn.cyan{background:var(--cyan);}
+  .btn.yellow{background:var(--yellow);}
+
+  .hint{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--paper-dim);margin-top:8px;line-height:1.5;}
+  .status{
+    font-family:'JetBrains Mono',monospace;font-size:12px;
+    padding:9px 12px;border-radius:var(--radius);margin-top:12px;
+    border:1px solid var(--line);display:none;
+  }
+  .status.show{display:block;}
+  .status.ok{border-color:var(--cyan);color:var(--cyan);}
+  .status.err{border-color:var(--red);color:var(--red);}
+  .status.busy{border-color:var(--yellow);color:var(--yellow);}
+
+  .keyline{display:flex;gap:10px;align-items:center;}
+  .keyline input{flex:1;}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--line);flex-shrink:0;}
+  .dot.on{background:var(--cyan);box-shadow:0 0 8px var(--cyan);}
+
+  /* ---- Character cards ---- */
+  .char-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+  .char-card{
+    background:var(--ink);border:1px solid var(--line);border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .char-img{
+    width:100%;aspect-ratio:3/4;background:var(--panel-2);
+    display:flex;align-items:center;justify-content:center;
+    background-size:cover;background-position:center;
+    position:relative;
+  }
+  .char-img .placeholder{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--paper-dim);text-align:center;padding:10px;}
+  .char-body{padding:12px;}
+  .char-body h4{font-family:'Bebas Neue',sans-serif;font-size:17px;margin:0 0 4px;letter-spacing:0.5px;color:var(--yellow);}
+  .char-body p{font-size:12px;color:var(--paper-dim);line-height:1.5;margin:0 0 10px;max-height:80px;overflow-y:auto;}
+
+  /* ---- Chapters / panels ---- */
+  .chapter-block{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;}
+  .chapter-head{
+    background:var(--panel-2);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;
+    cursor:pointer;
+  }
+  .chapter-head h3{font-family:'Bebas Neue',sans-serif;font-size:18px;margin:0;letter-spacing:0.5px;}
+  .chapter-head .meta{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--paper-dim);}
+  .chapter-body{padding:14px 16px;display:none;}
+  .chapter-body.open{display:block;}
+
+  .panel-card{
+    display:grid;grid-template-columns:140px 1fr;gap:14px;
+    background:var(--ink);border:1px solid var(--line);border-radius:var(--radius);
+    padding:12px;margin-bottom:10px;
+  }
+  .panel-thumb{
+    width:140px;aspect-ratio:3/4;background:var(--panel-2);border-radius:var(--radius);
+    background-size:cover;background-position:center;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--paper-dim);text-align:center;
+  }
+  .panel-info .pnum{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--red);letter-spacing:1px;}
+  .panel-info p{font-size:12.5px;line-height:1.55;margin:4px 0;color:var(--paper);}
+  .panel-info .dialog{color:var(--cyan);font-style:italic;}
+  .panel-info .chartags{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--yellow);margin-top:4px;}
+  .panel-actions{margin-top:8px;display:flex;gap:8px;}
+
+  /* ---- Preview / webtoon scroll ---- */
+  .scroll-wrap{max-width:460px;margin:0 auto;}
+  .scroll-panel{margin-bottom:2px;position:relative;}
+  .scroll-panel img{width:100%;display:block;}
+  .scroll-panel .cap{
+    background:var(--paper);color:var(--ink);padding:14px 16px;
+    font-size:13px;line-height:1.5;
+  }
+  .scroll-panel .cap .say{font-style:italic;color:var(--red-dim);}
+  .scroll-panel .missing{
+    background:var(--panel-2);aspect-ratio:3/4;display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--paper-dim);text-align:center;padding:20px;
+  }
+  .chapter-divider{
+    font-family:'Anton',sans-serif;text-align:center;padding:26px 0 14px;
+    color:var(--paper);letter-spacing:1px;text-transform:uppercase;
+    font-size:22px;
+  }
+  .chapter-divider span{color:var(--red);}
+
+  .empty-state{
+    text-align:center;padding:50px 20px;color:var(--paper-dim);
+    font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.7;
+  }
+
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;}
+
+  footer{
+    text-align:center;font-family:'JetBrains Mono',monospace;font-size:10.5px;
+    color:var(--paper-dim);margin-top:50px;opacity:0.6;
+  }
+
+  @media(max-width:600px){
+    .panel-card{grid-template-columns:1fr;}
+    .panel-thumb{width:100%;}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="masthead">
+    <h1>WEBTOON<span>.</span>STUDIO</h1>
+    <div class="tagline">CERITA &amp; ILUSTRASI PANEL DENGAN KONSISTENSI KARAKTER — DITENAGAI GEMINI API</div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="setup"><span class="num">00</span>SETUP</button>
+    <button class="tab-btn" data-tab="story"><span class="num">01</span>CERITA</button>
+    <button class="tab-btn" data-tab="chars"><span class="num">02</span>KARAKTER</button>
+    <button class="tab-btn" data-tab="panels"><span class="num">03</span>GAMBAR PANEL</button>
+    <button class="tab-btn" data-tab="preview"><span class="num">04</span>PREVIEW</button>
+  </div>
+
+  <!-- ================= TAB 0: SETUP ================= -->
+  <div class="panel-view active" id="tab-setup">
+    <div class="card">
+      <p class="card-title">🔑 API Key Gemini</p>
+      <p class="card-sub">Dapatkan API key gratis di aistudio.google.com/apikey. Key disimpan hanya di memori browser kamu selama sesi ini — tidak dikirim atau disimpan ke server manapun selain langsung ke Google.</p>
+      <label>Gemini API Key</label>
+      <div class="keyline">
+        <input type="password" id="apiKey" placeholder="AIzaSy...">
+        <div class="dot" id="keyDot"></div>
+      </div>
+      <div class="row" style="margin-top:14px;">
+        <div>
+          <label>Model Teks (Cerita)</label>
+          <select id="textModel">
+            <option value="gemini-2.5-flash">gemini-2.5-flash (cepat, gratis)</option>
+            <option value="gemini-2.5-pro">gemini-2.5-pro (kualitas lebih tinggi)</option>
+          </select>
+        </div>
+        <div>
+          <label>Model Gambar (Panel)</label>
+          <select id="imageModel">
+            <option value="gemini-2.5-flash-image">gemini-2.5-flash-image — Nano Banana (gratis, cepat)</option>
+            <option value="gemini-3.1-flash-image">gemini-3.1-flash-image — Nano Banana 2 (konsistensi lebih baik)</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn" id="saveKeyBtn" style="margin-top:16px;">SIMPAN &amp; TES KONEKSI</button>
+      <div class="status" id="setupStatus"></div>
+      <p class="hint">Tier gratis Gemini API punya kuota harian (bervariasi per model). Kalau kena limit, tunggu beberapa saat atau ganti ke model flash yang lebih ringan.</p>
+    </div>
+
+    <div class="card">
+      <p class="card-title">📦 Proyek</p>
+      <p class="card-sub">Simpan progres sebagai file JSON di komputer kamu, atau lanjutkan proyek yang sudah ada. Aplikasi ini tidak menyimpan apa pun otomatis — export manual sebelum menutup tab.</p>
+      <div class="toolbar">
+        <button class="btn ghost small" id="exportProjectBtn">⬇ EXPORT PROYEK (.json)</button>
+        <label class="btn ghost small" style="cursor:pointer;">
+          ⬆ IMPORT PROYEK
+          <input type="file" id="importProjectFile" accept=".json" style="display:none;">
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB 1: STORY ================= -->
+  <div class="panel-view" id="tab-story">
+    <div class="card">
+      <p class="card-title">✏️ Buat Cerita</p>
+      <p class="card-sub">Jelaskan ide cerita kamu. Gemini akan menyusun premis lengkap, daftar karakter, dan breakdown chapter + panel yang siap dipakai untuk generate gambar.</p>
+      <label>Premis / Ide Cerita</label>
+      <textarea id="storyPremise" placeholder="Contoh: Dunia pasca-apokaliptik di mana semua orang dewasa lenyap 7 tahun lalu. Remaja bernama Rein memimpin kelompok penyintas dan menemukan kebenaran gelap di balik hilangnya orang dewasa..."></textarea>
+      <div class="row">
+        <div>
+          <label>Genre / Nuansa</label>
+          <input type="text" id="storyGenre" placeholder="Action, dramatis, plot twist, dark fantasy...">
+        </div>
+        <div>
+          <label>Jumlah Chapter</label>
+          <input type="number" id="storyChapters" value="3" min="1" max="8">
+        </div>
+        <div>
+          <label>Panel per Chapter (perkiraan)</label>
+          <input type="number" id="panelsPerChapter" value="6" min="3" max="12">
+        </div>
+      </div>
+      <button class="btn" id="generateStoryBtn" style="margin-top:16px;">🪄 GENERATE CERITA</button>
+      <div class="status" id="storyStatus"></div>
+    </div>
+
+    <div id="storyOutput"></div>
+  </div>
+
+  <!-- ================= TAB 2: CHARACTERS ================= -->
+  <div class="panel-view" id="tab-chars">
+    <div class="card">
+      <p class="card-title">🎭 Character Bible</p>
+      <p class="card-sub">Generate gambar referensi "master" untuk tiap karakter dulu — gambar ini akan dipakai ulang sebagai acuan supaya wajah, outfit, dan ciri khas karakter tetap konsisten di semua panel.</p>
+      <button class="btn" id="genAllCharsBtn">🪄 GENERATE SEMUA GAMBAR KARAKTER</button>
+      <div class="status" id="charStatus"></div>
+    </div>
+    <div class="char-grid" id="charGrid"></div>
+  </div>
+
+  <!-- ================= TAB 3: PANELS ================= -->
+  <div class="panel-view" id="tab-panels">
+    <div class="card">
+      <p class="card-title">🖼️ Generate Gambar Panel</p>
+      <p class="card-sub">Tiap panel akan digenerate memakai gambar referensi karakter yang terlibat, supaya konsisten dengan Character Bible. Generate satu-satu atau sekaligus per chapter.</p>
+      <div class="status" id="panelGlobalStatus"></div>
+    </div>
+    <div id="panelsOutput"></div>
+  </div>
+
+  <!-- ================= TAB 4: PREVIEW ================= -->
+  <div class="panel-view" id="tab-preview">
+    <div class="card">
+      <p class="card-title">📱 Preview Webtoon</p>
+      <p class="card-sub">Tampilan scroll vertikal seperti webtoon. Klik tombol di bawah untuk download tiap gambar panel satu per satu.</p>
+      <div class="toolbar">
+        <button class="btn ghost small" id="downloadAllBtn">⬇ DOWNLOAD SEMUA GAMBAR</button>
+      </div>
+    </div>
+    <div class="scroll-wrap" id="previewScroll"></div>
+  </div>
+
+  <footer>WEBTOON STUDIO — DIBUAT UNTUK PRODUKSI KONTEN, JALAN 100% DI BROWSER, GAMBAR &amp; API KEY TIDAK PERNAH MENINGGALKAN SESI INI KECUALI KE GOOGLE.</footer>
+</div>
+
+<script>
+/* =========================================================
+   STATE
+========================================================= */
+const state = {
+  apiKey: '',
+  textModel: 'gemini-2.5-flash',
+  imageModel: 'gemini-2.5-flash-image',
+  story: null, // {title, genre, premise, characters:[{name,description}], chapters:[{title,summary,panels:[{scene_description,dialog,characters:[]}]}]}
+  charImages: {}, // name -> {base64, mime}
+  panelImages: {}, // "c{ci}-p{pi}" -> {base64, mime}
+};
+
+/* =========================================================
+   TAB NAV
+========================================================= */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel-view').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+    if(btn.dataset.tab==='preview') renderPreview();
+  });
+});
+
+function setStatus(id, type, msg){
+  const el = document.getElementById(id);
+  el.className = 'status show ' + type;
+  el.textContent = msg;
+}
+function clearStatus(id){
+  const el = document.getElementById(id);
+  el.className = 'status';
+}
+
+/* =========================================================
+   GEMINI API HELPERS
+========================================================= */
+async function geminiText(model, prompt, asJson){
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(state.apiKey)}`;
+  const body = {
+    contents: [{ parts: [{ text: prompt }] }],
+  };
+  if(asJson){
+    body.generationConfig = { responseMimeType: "application/json" };
+  }
+  const res = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  if(!res.ok){
+    const errText = await res.text();
+    throw new Error(`API error ${res.status}: ${errText.slice(0,300)}`);
+  }
+  const data = await res.json();
+  const cand = data.candidates && data.candidates[0];
+  if(!cand) throw new Error('Tidak ada respons dari model. Coba lagi.');
+  const text = (cand.content.parts || []).map(p=>p.text||'').join('');
+  return text;
+}
+
+async function geminiImage(model, promptText, refImages){
+  // refImages: array of {base64, mime}
+  const parts = [];
+  if(refImages && refImages.length){
+    refImages.forEach(ref=>{
+      parts.push({ inlineData: { mimeType: ref.mime, data: ref.base64 } });
+    });
+  }
+  parts.push({ text: promptText });
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(state.apiKey)}`;
+  const res = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ contents: [{ parts }] })
+  });
+  if(!res.ok){
+    const errText = await res.text();
+    throw new Error(`API error ${res.status}: ${errText.slice(0,300)}`);
+  }
+  const data = await res.json();
+  const cand = data.candidates && data.candidates[0];
+  if(!cand) throw new Error('Tidak ada respons gambar dari model.');
+  const imgPart = (cand.content.parts || []).find(p=>p.inlineData);
+  if(!imgPart) throw new Error('Model tidak mengembalikan gambar. Coba ubah prompt atau model.');
+  return { base64: imgPart.inlineData.data, mime: imgPart.inlineData.mimeType || 'image/png' };
+}
+
+/* =========================================================
+   TAB 0: SETUP
+========================================================= */
+document.getElementById('saveKeyBtn').addEventListener('click', async ()=>{
+  const key = document.getElementById('apiKey').value.trim();
+  if(!key){ setStatus('setupStatus','err','Masukkan API key dulu.'); return; }
+  state.apiKey = key;
+  state.textModel = document.getElementById('textModel').value;
+  state.imageModel = document.getElementById('imageModel').value;
+  setStatus('setupStatus','busy','Menguji koneksi ke Gemini API...');
+  try{
+    await geminiText(state.textModel, 'Balas hanya dengan kata: OK', false);
+    setStatus('setupStatus','ok','✓ Terhubung! Key tersimpan untuk sesi ini. Lanjut ke tab CERITA.');
+    document.getElementById('keyDot').classList.add('on');
+  }catch(e){
+    setStatus('setupStatus','err','Gagal terhubung: '+e.message);
+    document.getElementById('keyDot').classList.remove('on');
+  }
+});
+
+document.getElementById('exportProjectBtn').addEventListener('click', ()=>{
+  const blob = new Blob([JSON.stringify(state,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'webtoon-project.json';
+  a.click();
+});
+document.getElementById('importProjectFile').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const imported = JSON.parse(reader.result);
+      Object.assign(state, imported);
+      document.getElementById('apiKey').value = state.apiKey || '';
+      document.getElementById('textModel').value = state.textModel || 'gemini-2.5-flash';
+      document.getElementById('imageModel').value = state.imageModel || 'gemini-2.5-flash-image';
+      renderStory();
+      renderCharacters();
+      renderPanels();
+      setStatus('setupStatus','ok','✓ Proyek berhasil dimuat.');
+    }catch(err){
+      setStatus('setupStatus','err','File JSON tidak valid.');
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* =========================================================
+   TAB 1: STORY GENERATION
+========================================================= */
+document.getElementById('generateStoryBtn').addEventListener('click', async ()=>{
+  if(!state.apiKey){ setStatus('storyStatus','err','Simpan API key dulu di tab SETUP.'); return; }
+  const premise = document.getElementById('storyPremise').value.trim();
+  const genre = document.getElementById('storyGenre').value.trim();
+  const numChapters = document.getElementById('storyChapters').value;
+  const panelsPer = document.getElementById('panelsPerChapter').value;
+  if(!premise){ setStatus('storyStatus','err','Isi premis cerita dulu.'); return; }
+
+  setStatus('storyStatus','busy','Menyusun cerita, karakter, dan breakdown panel... (bisa 20-40 detik)');
+  document.getElementById('generateStoryBtn').disabled = true;
+
+  const prompt = `Kamu adalah penulis skenario komik webtoon profesional berbahasa Indonesia.
+
+Premis: ${premise}
+Genre/nuansa: ${genre || 'bebas, sesuai premis'}
+Jumlah chapter: ${numChapters}
+Perkiraan panel per chapter: ${panelsPer}
+
+Buat cerita komik webtoon lengkap dengan struktur JSON PERSIS seperti ini (jangan tambah teks lain di luar JSON):
+
+{
+  "title": "judul komik",
+  "genre": "genre singkat",
+  "premise": "ringkasan premis 2-3 kalimat",
+  "characters": [
+    {
+      "name": "nama karakter",
+      "role": "protagonist/antagonist/supporting",
+      "description": "deskripsi visual SANGAT detail dan spesifik: bentuk wajah, warna & gaya rambut, warna mata, tinggi badan, bentuk tubuh, outfit khas (warna & detail pakaian), aksesoris, ciri khas unik. Ini akan dipakai untuk generate gambar referensi, jadi harus konsisten dan bisa dibayangkan dengan jelas.",
+      "personality": "kepribadian singkat"
+    }
+  ],
+  "chapters": [
+    {
+      "title": "judul chapter",
+      "summary": "ringkasan chapter 1-2 kalimat",
+      "panels": [
+        {
+          "scene_description": "deskripsi visual adegan untuk panel ini: setting, angle kamera, pose karakter, ekspresi, aksi yang terjadi. Detail dan sinematik, gaya webtoon/manhwa.",
+          "dialog": "dialog atau narasi caption untuk panel ini (boleh kosong string jika panel murni visual)",
+          "characters": ["nama karakter yang muncul di panel ini, sesuai nama di atas"]
+        }
+      ]
+    }
+  ]
+}
+
+Pastikan alurnya dramatis, ada hook visual yang kuat di panel pembuka, dan ada plot twist yang jelas di salah satu chapter. Buat persis ${numChapters} chapter, masing-masing sekitar ${panelsPer} panel.`;
+
+  try{
+    const raw = await geminiText(state.textModel, prompt, true);
+    const cleaned = raw.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(cleaned);
+    state.story = parsed;
+    setStatus('storyStatus','ok','✓ Cerita berhasil dibuat: "'+parsed.title+'". Lanjut ke tab KARAKTER.');
+    renderStory();
+    renderCharacters();
+    renderPanels();
+  }catch(e){
+    setStatus('storyStatus','err','Gagal generate cerita: '+e.message);
+  }finally{
+    document.getElementById('generateStoryBtn').disabled = false;
+  }
+});
+
+function renderStory(){
+  const out = document.getElementById('storyOutput');
+  if(!state.story){ out.innerHTML=''; return; }
+  const s = state.story;
+  let html = `<div class="card">
+    <p class="card-title">📖 ${escapeHtml(s.title||'')}</p>
+    <p class="card-sub">${escapeHtml(s.genre||'')} — ${escapeHtml(s.premise||'')}</p>
+  </div>`;
+  (s.chapters||[]).forEach((ch,ci)=>{
+    html += `<div class="chapter-block">
+      <div class="chapter-head" onclick="this.nextElementSibling.classList.toggle('open')">
+        <h3>Chapter ${ci+1}: ${escapeHtml(ch.title||'')}</h3>
+        <span class="meta">${(ch.panels||[]).length} panel</span>
+      </div>
+      <div class="chapter-body">
+        <p style="font-size:13px;color:var(--paper-dim);margin:0 0 10px;">${escapeHtml(ch.summary||'')}</p>
+        ${(ch.panels||[]).map((p,pi)=>`
+          <div style="border-left:2px solid var(--line);padding:6px 0 6px 12px;margin-bottom:6px;">
+            <div class="pnum">PANEL ${pi+1}</div>
+            <p>${escapeHtml(p.scene_description||'')}</p>
+            ${p.dialog ? `<p class="dialog">"${escapeHtml(p.dialog)}"</p>` : ''}
+            <div class="chartags">${(p.characters||[]).join(' · ')}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>`;
+  });
+  out.innerHTML = html;
+}
+
+/* =========================================================
+   TAB 2: CHARACTERS
+========================================================= */
+function renderCharacters(){
+  const grid = document.getElementById('charGrid');
+  if(!state.story || !state.story.characters){ grid.innerHTML = '<div class="empty-state">Belum ada karakter. Generate cerita dulu di tab CERITA.</div>'; return; }
+  grid.innerHTML = state.story.characters.map(c=>{
+    const img = state.charImages[c.name];
+    return `<div class="char-card">
+      <div class="char-img" id="charimg-${slug(c.name)}" style="${img ? `background-image:url(data:${img.mime};base64,${img.base64})` : ''}">
+        ${!img ? `<div class="placeholder">Belum ada gambar<br>referensi</div>` : ''}
+      </div>
+      <div class="char-body">
+        <h4>${escapeHtml(c.name)}</h4>
+        <p>${escapeHtml(c.description||'')}</p>
+        <button class="btn small ${img?'ghost':''}" onclick="generateCharacterImage('${escapeAttr(c.name)}')">
+          ${img ? '↻ REGENERATE' : '🪄 GENERATE'}
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function generateCharacterImage(name){
+  if(!state.apiKey){ setStatus('charStatus','err','Simpan API key dulu di tab SETUP.'); return; }
+  const character = state.story.characters.find(c=>c.name===name);
+  if(!character) return;
+  setStatus('charStatus','busy',`Generate gambar referensi untuk ${name}...`);
+  const prompt = `Buat SATU gambar character reference sheet gaya ilustrasi webtoon/manhwa Korea modern, full body, pose netral menghadap depan, latar belakang polos studio abu-abu terang, pencahayaan flat dan jelas.
+
+Karakter: ${character.name}
+Deskripsi visual: ${character.description}
+Genre komik: ${state.story.genre}
+
+Gaya gambar: line art bersih dengan cel-shading, warna solid, proporsi manhwa/webtoon modern, sangat detail pada wajah dan outfit karena gambar ini akan jadi acuan konsistensi karakter di semua panel selanjutnya.`;
+  try{
+    const img = await geminiImage(state.imageModel, prompt, null);
+    state.charImages[name] = img;
+    setStatus('charStatus','ok',`✓ Gambar referensi ${name} berhasil dibuat.`);
+    renderCharacters();
+  }catch(e){
+    setStatus('charStatus','err','Gagal generate: '+e.message);
+  }
+}
+
+document.getElementById('genAllCharsBtn').addEventListener('click', async ()=>{
+  if(!state.story || !state.story.characters){ setStatus('charStatus','err','Belum ada karakter.'); return; }
+  for(const c of state.story.characters){
+    await generateCharacterImage(c.name);
+  }
+});
+
+/* =========================================================
+   TAB 3: PANEL IMAGE GENERATION
+========================================================= */
+function renderPanels(){
+  const out = document.getElementById('panelsOutput');
+  if(!state.story){ out.innerHTML = '<div class="empty-state">Belum ada cerita. Generate cerita dulu di tab CERITA.</div>'; return; }
+  out.innerHTML = state.story.chapters.map((ch,ci)=>{
+    return `<div class="chapter-block">
+      <div class="chapter-head" onclick="this.nextElementSibling.classList.toggle('open')">
+        <h3>Chapter ${ci+1}: ${escapeHtml(ch.title||'')}</h3>
+        <span class="meta">${(ch.panels||[]).length} panel</span>
+      </div>
+      <div class="chapter-body open">
+        <button class="btn small cyan" style="margin-bottom:12px;" onclick="generateChapterPanels(${ci})">🪄 GENERATE SEMUA PANEL DI CHAPTER INI</button>
+        ${(ch.panels||[]).map((p,pi)=>{
+          const key = `c${ci}-p${pi}`;
+          const img = state.panelImages[key];
+          return `<div class="panel-card">
+            <div class="panel-thumb" id="panelimg-${key}" style="${img?`background-image:url(data:${img.mime};base64,${img.base64})`:''}">
+              ${!img?'Belum ada gambar':''}
+            </div>
+            <div class="panel-info">
+              <div class="pnum">CH ${ci+1} · PANEL ${pi+1}</div>
+              <p>${escapeHtml(p.scene_description||'')}</p>
+              ${p.dialog?`<p class="dialog">"${escapeHtml(p.dialog)}"</p>`:''}
+              <div class="chartags">${(p.characters||[]).join(' · ')}</div>
+              <div class="panel-actions">
+                <button class="btn small ${img?'ghost':''}" onclick="generatePanelImage(${ci},${pi})">${img?'↻ Regenerate':'🪄 Generate'}</button>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function generatePanelImage(ci,pi){
+  if(!state.apiKey){ setStatus('panelGlobalStatus','err','Simpan API key dulu di tab SETUP.'); return; }
+  const ch = state.story.chapters[ci];
+  const p = ch.panels[pi];
+  const key = `c${ci}-p${pi}`;
+  setStatus('panelGlobalStatus','busy',`Generate Chapter ${ci+1} Panel ${pi+1}...`);
+
+  const refImages = (p.characters||[])
+    .map(name => state.charImages[name])
+    .filter(Boolean);
+
+  const charNotes = (p.characters||[]).map(name=>{
+    const c = state.story.characters.find(x=>x.name===name);
+    return c ? `${name}: ${c.description}` : name;
+  }).join('\n');
+
+  const prompt = `Buat SATU panel komik webtoon/manhwa bergaya vertical scroll, rasio potret 3:4, line art bersih dengan cel-shading.
+
+${refImages.length ? 'Gunakan gambar referensi karakter yang disertakan untuk menjaga wajah, outfit, dan ciri khas karakter TETAP KONSISTEN dengan referensi tersebut.' : ''}
+
+Deskripsi adegan: ${p.scene_description}
+${p.dialog ? `Dialog/narasi di panel (untuk konteks ekspresi & suasana, JANGAN render teks dialog ke dalam gambar): "${p.dialog}"` : ''}
+
+Karakter yang muncul:
+${charNotes || '(tidak ada karakter spesifik, fokus pada environment/objek)'}
+
+Genre & mood: ${state.story.genre}. Komposisi sinematik, pencahayaan dramatis sesuai mood adegan, gaya ilustrasi webtoon Korea modern. Jangan sertakan teks, watermark, atau speech bubble di gambar — hanya ilustrasi murni.`;
+
+  try{
+    const img = await geminiImage(state.imageModel, prompt, refImages);
+    state.panelImages[key] = img;
+    setStatus('panelGlobalStatus','ok',`✓ Chapter ${ci+1} Panel ${pi+1} selesai.`);
+    renderPanels();
+  }catch(e){
+    setStatus('panelGlobalStatus','err',`Gagal Chapter ${ci+1} Panel ${pi+1}: ${e.message}`);
+  }
+}
+
+async function generateChapterPanels(ci){
+  const ch = state.story.chapters[ci];
+  for(let pi=0; pi<ch.panels.length; pi++){
+    await generatePanelImage(ci,pi);
+  }
+}
+
+/* =========================================================
+   TAB 4: PREVIEW
+========================================================= */
+function renderPreview(){
+  const wrap = document.getElementById('previewScroll');
+  if(!state.story){ wrap.innerHTML = '<div class="empty-state">Belum ada cerita untuk dipreview.</div>'; return; }
+  let html = '';
+  state.story.chapters.forEach((ch,ci)=>{
+    html += `<div class="chapter-divider">CH ${ci+1} <span>·</span> ${escapeHtml(ch.title||'')}</div>`;
+    (ch.panels||[]).forEach((p,pi)=>{
+      const key = `c${ci}-p${pi}`;
+      const img = state.panelImages[key];
+      html += `<div class="scroll-panel">
+        ${img
+          ? `<img src="data:${img.mime};base64,${img.base64}" alt="Panel ${pi+1}">`
+          : `<div class="missing">Panel belum digenerate<br>(Chapter ${ci+1}, Panel ${pi+1})</div>`
+        }
+        ${p.dialog ? `<div class="cap"><span class="say">"${escapeHtml(p.dialog)}"</span></div>` : ''}
+      </div>`;
+    });
+  });
+  wrap.innerHTML = html || '<div class="empty-state">Belum ada panel.</div>';
+}
+
+document.getElementById('downloadAllBtn').addEventListener('click', ()=>{
+  let count = 0;
+  Object.entries(state.panelImages).forEach(([key,img])=>{
+    const a = document.createElement('a');
+    a.href = `data:${img.mime};base64,${img.base64}`;
+    a.download = `webtoon-${key}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    count++;
+  });
+  if(count===0) alert('Belum ada gambar panel untuk didownload.');
+});
+
+/* =========================================================
+   UTIL
+========================================================= */
+function escapeHtml(str){
+  if(!str) return '';
+  return str.replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function escapeAttr(str){ return (str||'').replace(/'/g,"\\'"); }
+function slug(str){ return (str||'').toLowerCase().replace(/[^a-z0-9]+/g,'-'); }
+</script>
+</body>
+</html>
