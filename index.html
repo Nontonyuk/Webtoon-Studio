@@ -266,15 +266,15 @@
         <div>
           <label>Model Teks (Cerita)</label>
           <select id="textModel">
-            <option value="gemini-2.5-flash">gemini-2.5-flash (cepat, gratis)</option>
-            <option value="gemini-2.5-pro">gemini-2.5-pro (kualitas lebih tinggi)</option>
+            <option value="gemini-flash-latest">gemini-flash-latest (Gemini 3.5 Flash, terbaru &amp; gratis)</option>
+            <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (paling hemat kuota)</option>
           </select>
         </div>
         <div>
           <label>Model Gambar (Panel)</label>
           <select id="imageModel">
-            <option value="gemini-2.5-flash-image">gemini-2.5-flash-image — Nano Banana (gratis, cepat)</option>
-            <option value="gemini-3.1-flash-image">gemini-3.1-flash-image — Nano Banana 2 (konsistensi lebih baik)</option>
+            <option value="gemini-3.1-flash-image">gemini-3.1-flash-image — Nano Banana 2 (gratis, terbaru)</option>
+            <option value="gemini-2.5-flash-image">gemini-2.5-flash-image — Nano Banana lama (fallback)</option>
           </select>
         </div>
       </div>
@@ -366,8 +366,8 @@
 ========================================================= */
 const state = {
   apiKey: '',
-  textModel: 'gemini-2.5-flash',
-  imageModel: 'gemini-2.5-flash-image',
+  textModel: 'gemini-flash-latest',
+  imageModel: 'gemini-3.1-flash-image',
   story: null, // {title, genre, premise, characters:[{name,description}], chapters:[{title,summary,panels:[{scene_description,dialog,characters:[]}]}]}
   charImages: {}, // name -> {base64, mime}
   panelImages: {}, // "c{ci}-p{pi}" -> {base64, mime}
@@ -414,6 +414,9 @@ async function geminiText(model, prompt, asJson){
   });
   if(!res.ok){
     const errText = await res.text();
+    if(res.status===404){
+      throw new Error(`Model "${model}" tidak ditemukan atau sudah tidak tersedia (mungkin dideprecate Google). Coba ganti ke model lain di dropdown tab Setup.`);
+    }
     throw new Error(`API error ${res.status}: ${errText.slice(0,300)}`);
   }
   const data = await res.json();
@@ -441,6 +444,9 @@ async function geminiImage(model, promptText, refImages){
   });
   if(!res.ok){
     const errText = await res.text();
+    if(res.status===404){
+      throw new Error(`Model "${model}" tidak ditemukan atau sudah tidak tersedia (mungkin dideprecate Google). Coba ganti ke model lain di dropdown tab Setup.`);
+    }
     throw new Error(`API error ${res.status}: ${errText.slice(0,300)}`);
   }
   const data = await res.json();
@@ -487,8 +493,8 @@ document.getElementById('importProjectFile').addEventListener('change', (e)=>{
       const imported = JSON.parse(reader.result);
       Object.assign(state, imported);
       document.getElementById('apiKey').value = state.apiKey || '';
-      document.getElementById('textModel').value = state.textModel || 'gemini-2.5-flash';
-      document.getElementById('imageModel').value = state.imageModel || 'gemini-2.5-flash-image';
+      document.getElementById('textModel').value = state.textModel || 'gemini-flash-latest';
+      document.getElementById('imageModel').value = state.imageModel || 'gemini-3.1-flash-image';
       renderStory();
       renderCharacters();
       renderPanels();
